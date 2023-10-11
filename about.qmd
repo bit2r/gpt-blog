@@ -1,0 +1,22 @@
+---
+title: "한국R사용자회"
+image: image/koRea_logo.png
+about:
+  template: jolla
+  links:
+    - icon: facebook
+      text: 페이스북
+      href: https://www.facebook.com/groups/tidyverse
+    - icon: youtube
+      text: 유튜브
+      href: https://www.youtube.com/channel/UCW-epmIvjBEhhVXw_F0Nqbw
+    - icon: github
+      text: Github
+      href: https://github.com/bit2r/
+    - icon: meetup
+      text: Meetup
+      href: https://www.meetup.com/seoul-r-meetup/
+---
+
+한국 R 사용자회에서 운영하는 공식 블로그입니다.
+

@@ -1,0 +1,35 @@
+project:
+  type: website
+  output-dir: docs
+  resources:
+    - "data/*.mp3"
+  render:
+    - "*.qmd"
+    - "!*.Rmd"
+
+lang: ko-KR
+date-format: "YYYY년 MM월 DD일"
+
+website:
+  title: "R 블로그"
+  navbar:
+    right:
+      - about.qmd
+      - icon: github
+        href: https://github.com/bit2r/gpt-blog
+      - icon: facebook
+        href: https://www.facebook.com/groups/tidyverse
+      - icon: youtube
+        href: https://www.youtube.com/channel/UCW-epmIvjBEhhVXw_F0Nqbw
+        
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+
+
+filters:
+  - lightbox
+lightbox:
+  match: auto
+  effect: fade   
