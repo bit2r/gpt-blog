@@ -1,0 +1,148 @@
+---
+title: "코호트 분석"
+author: "이광춘"
+date: "2023-10-13"
+categories: [분석, 코호트]
+editor_options: 
+  chunk_output_type: console
+---
+
+코호트 분석(Cohort Analysis)은 고객 또는 사용자 유지율을 시각화하여 비즈니스 사업목표 달성에 도움이 되는 대표적인 방법론이다. [`cohorts`](https://github.com/PeerChristensen/cohorts) R 패키지는 코호트 분석을 단순화하는 몇 가지 쉽게 핵심 함수를 제공한다. [@CohortAnalysisInR]
+코호트 분석을 위해서 데이터프레임에서 사용자 ID와 날짜를 포함한 두 열이 필요하다.
+
+'cohorts' 패키지는 코호트 테이블을 월별 또는 일별로 집계할 수 있게 해준다. 이 테이블은 시간이 지남에 따라 각 코호트의 고객 수가 어떻게 변하는지를 보여준다. 또한, 유지율 표를 백분율로 표시하고 `gt` 패키지를 통해 적은 코드로 핵심적인 사항을 파악할 수 있다.
+
+# CDNOW RFM 분석 사례 [^r-blogger-data-apple] [^slideshare-rfm] {#cdnow-rfm}
+
+[^r-blogger-data-apple]: [Jack Han (2013), RFM Customer Analysis with R Language](https://www.r-bloggers.com/rfm-customer-analysis-with-r-language/)
+[^slideshare-rfm]: [Kamil Bartocha, Lead Data Scientist at Schroders(2015), RFM Segmentation](https://www.slideshare.net/WhiteRavenPL/rfm-segmentation)
+
+## 데이터
+
+[http://www.brucehardie.com/datasets/](http://www.brucehardie.com/datasets/) 웹사이트에서 RFM 데이터 분석을 위한 데이터를 다운로드 받아 압축을 풀고 데이터를 살펴본다.
+
+> A dataset containing the entire purchase history up to the end of June 1998 of the cohort of 23,570 individuals who made their first-ever purchase at CDNOW in the **first quarter of 1997**.
+
+```{r}
+# 0. 환경설정 -----------
+library(tidyverse)
+library(ggpubr)
+extrafont::loadfonts(quiet = TRUE)
+library(gt)
+library(gtExtras)
+
+# 1. 데이터 가져오기 -----------
+## 1.1. 데이터 다운로드
+# download.file(url="http://www.brucehardie.com/datasets/CDNOW_master.zip", destfile = "data/CDNOW_master.zip")
+# unzip("data/CDNOW_master.zip", exdir ="data/CDNOW")
+ 
+## 1.2. 데이터 가져오기
+cdnow_dat <- read_fwf(glue::glue("{here::here()}/data/CDNOW/CDNOW_master.txt"), fwf_cols(cid = 6, pdate = 9, numCDs = 3, amount=8))
+
+cdnow_dat %>% 
+  sample_n(100) 
+```
+
+데이터의 자료형을 맞춰주고 나서, 거래최근성, 거래빈도, 거래규모를 원본 데이터에서 산출해서 살펴보기 전에 고객 유지율(retention)표 작성을 위해서 필요한 최소 데이터만 준비한다.
+
+
+``` {r}
+# 2. 데이터 정제 및 RFM -----------
+cdnow_tbl <- cdnow_dat %>% 
+    mutate(pdate = parse_date(as.character(pdate), format = "%Y%m%d")) %>% 
+    select(-numCDs)
+
+cdnow_tbl
+```
+
+## 코호트 분석 
+
+### 코호트 숫자
+
+```{r}
+library(cohorts)
+
+cdnow_tbl |> 
+  cohort_table_month(cid, pdate)  
+
+```
+
+### 코호트 비율
+
+```{r}
+cdnow_tbl |> 
+  cohort_table_month(cid, pdate) |> 
+  cohort_table_pct(decimals = 1)
+```
+
+```{r}
+cdnow_tbl |> 
+  cohort_table_month(cid, pdate) |> 
+  cohort_table_pct(decimals = 1) |> 
+  shift_left()  
+```
+
+### 그래프
+
+```{r}
+cdnow_gg_tbl <- cdnow_tbl |> 
+  cohort_table_month(cid, pdate) |> 
+  cohort_table_pct(decimals = 1) |> 
+  shift_left() |> 
+  pivot_longer(-cohort) %>%
+  mutate(time = as.numeric(str_remove(name,"t"))) 
+
+cdnow_gg_tbl |> 
+  filter(time > 0) |>  
+  ggplot(aes(time, value, colour = factor(cohort), group = cohort)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 1.5) +
+  theme_minimal() +
+  labs(color = "코호트", x = "시간(월)", y = "유지율(%)",
+       title = "CDNOW 코호트 분석",
+       subtitle = "1997년 1/4분기 CDNOW 구매고객")
+```
+
+
+### 유지율 표
+
+```{r}
+cdnow_tbl |>
+  filter(pdate <= as.Date("1997-06-30")) |> 
+  cohort_table_month(cid, pdate)  |> 
+  pivot_longer(-cohort) %>%
+  mutate(time = str_sub(name, 1, 1))  |>
+  mutate(value = ifelse(is.na(value), 0, value)) |> 
+  ggplot(aes(time, reorder(cohort, desc(cohort)))) +
+   geom_raster(aes(fill = log(value))) +
+   coord_equal(ratio = 1) +
+   geom_text(aes(label = str_glue("{scales::comma(value)} 명")), 
+                 size  = 3, 
+                 colour = "snow") +
+  scale_fill_gradient(guide = "none") +
+  theme_minimal(base_size = 16) +
+  theme(panel.grid   = element_blank(),
+        panel.border = element_blank()) +
+  labs(y = "코호트",
+       x = "시간(월)",
+       title = "CDNOW 코호트 분석")  
+```
+
+
+```{r}
+cdnow_tbl |>
+  filter(pdate <= as.Date("1997-06-30")) |> 
+  cohort_table_month(cid, pdate) |> 
+  gt() |> 
+  fmt_integer(columns = -cohort) |> 
+  fmt_missing(columns = everything(), missing_text = "-") |> 
+  cols_align("center") |> 
+  gt_theme_538() |> 
+  data_color(
+    columns = -cohort,
+    method = "numeric",
+    palette = "inferno",
+    na_color = "white"
+  )
+
+```

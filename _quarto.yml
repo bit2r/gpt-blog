@@ -33,3 +33,17 @@ filters:
 lightbox:
   match: auto
   effect: fade   
+
+bibliography: bibliography.bib
+link-citations: true
+csl: apa-single-spaced.csl
+
+knitr:
+  opts_chunk: 
+    message: false
+    warning: false
+    collapse: true
+    R.options:
+      knitr.graphics.auto_pdf: true
+      
+      
